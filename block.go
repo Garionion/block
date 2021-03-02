@@ -14,14 +14,17 @@ var log = clog.NewWithPlugin("block")
 type Blocker struct {
 	Next  plugin.Handler
 	Rules map[string]Rule
-	Zones plugin.Zones
+}
+
+type Rule struct {
+	RecordTypes []uint16
 }
 
 func (b Blocker) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 	qname := state.QName()
 	zone := b.match(qname)
-	if zone == "" {
+	if zone == "" && !b.matchQuestion(r, zone) {
 		return plugin.NextOrFailure(b.Name(), b.Next, ctx, w, r)
 	}
 	resp := new(dns.Msg)
@@ -43,12 +46,17 @@ func (b Blocker) match(name string) string {
 	return ""
 }
 
-func (b Blocker) Name() string {
-	return "block"
+func (b Blocker) matchQuestion(r *dns.Msg, zone string) bool {
+	for _, question := range r.Question {
+		if typeInSlice(question.Qtype, b.Rules[zone].RecordTypes) {
+			return true
+		}
+	}
+	return false
 }
 
-type Rule struct {
-	RecordTypes []uint16
+func (b Blocker) Name() string {
+	return "block"
 }
 
 const (
@@ -92,4 +100,13 @@ func RecordTypefromString(s string) (uint16, error) {
 	default:
 		return 0, plugin.Error("block", fmt.Errorf("Unrecogniced RecordType: %s", s))
 	}
+}
+
+func typeInSlice(a uint16, list []uint16) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
