@@ -24,7 +24,7 @@ func (b Blocker) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	state := request.Request{W: w, Req: r}
 	qname := state.QName()
 	zone := b.match(qname)
-	if zone == "" && !b.matchQuestion(r, zone) {
+	if !b.matchQuestion(r, zone) {
 		return plugin.NextOrFailure(b.Name(), b.Next, ctx, w, r)
 	}
 	resp := new(dns.Msg)
@@ -47,6 +47,9 @@ func (b Blocker) match(name string) string {
 }
 
 func (b Blocker) matchQuestion(r *dns.Msg, zone string) bool {
+	if zone == "" {
+		return false
+	}
 	log.Debugf("Searching Rule for %s", zone)
 	for _, question := range r.Question {
 		log.Debugf("Compare Type %v with Rule %v", question.Qtype, b.Rules[zone].RecordTypes)
