@@ -1,4 +1,4 @@
-module github.com/coredns/coredns/plugin/block
+module github.com/Garionion/block
 
 go 1.16
 
