@@ -47,7 +47,9 @@ func (b Blocker) match(name string) string {
 }
 
 func (b Blocker) matchQuestion(r *dns.Msg, zone string) bool {
+	log.Debugf("Searching Rule for %s", zone)
 	for _, question := range r.Question {
+		log.Debugf("Compare Type %v with Rule %v", question.Qtype, b.Rules[zone].RecordTypes)
 		if typeInSlice(question.Qtype, b.Rules[zone].RecordTypes) {
 			return true
 		}
@@ -104,6 +106,7 @@ func RecordTypefromString(s string) (uint16, error) {
 
 func typeInSlice(a uint16, list []uint16) bool {
 	for _, b := range list {
+		fmt.Println(a, b)
 		if b == a {
 			return true
 		}
