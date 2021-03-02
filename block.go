@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/coredns/coredns/plugin"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
 )
+
+var log = clog.NewWithPlugin("block")
 
 type Blocker struct {
 	Next  plugin.Handler
@@ -17,7 +20,7 @@ type Blocker struct {
 func (b Blocker) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 	qname := state.QName()
-	zone := b.Zones.Matches(qname)
+	zone := b.match(qname)
 	if zone == "" {
 		return plugin.NextOrFailure(b.Name(), b.Next, ctx, w, r)
 	}
@@ -29,31 +32,40 @@ func (b Blocker) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	return dns.RcodeSuccess, err
 }
 
+func (b Blocker) match(name string) string {
+	for zone := range b.Rules {
+		log.Debugf("Check if %s matches %s", zone, name)
+		if zone == name {
+			log.Debugf("%s did match %s", zone, name)
+			return zone
+		}
+	}
+	return ""
+}
+
 func (b Blocker) Name() string {
 	return "block"
 }
 
 type Rule struct {
-	RecordTypes []RecordType
+	RecordTypes []uint16
 }
 
-type RecordType string
-
 const (
-	All   RecordType = "*"
-	NS    RecordType = "NS"
-	A     RecordType = "A"
-	AAAA  RecordType = "AAAA"
-	SRV   RecordType = "SRV"
-	TXT   RecordType = "TXT"
-	CNAME RecordType = "CNAME"
-	MX    RecordType = "MX"
-	PTR   RecordType = "PTR"
-	SOA   RecordType = "SOA"
-	CAA   RecordType = "CAA"
+	All   = dns.TypeANY
+	NS    = dns.TypeNS
+	A     = dns.TypeA
+	AAAA  = dns.TypeAAAA
+	SRV   = dns.TypeSRV
+	TXT   = dns.TypeTXT
+	CNAME = dns.TypeCNAME
+	MX    = dns.TypeMX
+	PTR   = dns.TypePTR
+	SOA   = dns.TypeSOA
+	CAA   = dns.TypeCAA
 )
 
-func RecordTypefromString(s string) (RecordType, error) {
+func RecordTypefromString(s string) (uint16, error) {
 	switch s {
 	case "*":
 		return All, nil
@@ -78,6 +90,6 @@ func RecordTypefromString(s string) (RecordType, error) {
 	case "CAA":
 		return CAA, nil
 	default:
-		return "", plugin.Error("block", fmt.Errorf("Unrecogniced RecordType: %s", s))
+		return 0, plugin.Error("block", fmt.Errorf("Unrecogniced RecordType: %s", s))
 	}
 }

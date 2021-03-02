@@ -39,7 +39,7 @@ func blockParser(c *caddy.Controller) (map[string]Rule, plugin.Zones, error) {
 			for _, domainName := range domainNames {
 				domainName = plugin.Name(domainName).Normalize()
 				if _, ok := rules[domainName]; !ok {
-					rules[domainName] = Rule{RecordTypes: []RecordType{recordType}}
+					rules[domainName] = Rule{RecordTypes: []uint16{recordType}}
 				} else {
 					rule := rules[domainName]
 					recordTypes := append(rules[domainName].RecordTypes, recordType)
